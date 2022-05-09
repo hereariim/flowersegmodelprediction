@@ -135,11 +135,14 @@ def warm():
 
 
 def get_predict_args():
-    """
-    https://docs.deep-hybrid-datacloud.eu/projects/deepaas/en/latest/user/v2-api.html#deepaas.model.v2.base.BaseModel.get_predict_args
-    :return:
-    """
-    return cfg.PredictArgsSchema().fields
+    return {
+        "data": fields.Field(
+            description="Data file to perform inference on.",
+            required=False,
+            missing=None,
+            type="file",
+            location="form")
+     }
 
 
 @_catch_error
