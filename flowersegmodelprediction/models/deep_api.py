@@ -153,9 +153,58 @@ def _predict_data(*args):
     """
     (Optional) Helper function to make prediction on an uploaded file
     """
+    image_list = [image.filename for image in args['files']]
+    #Fonctions utiles
+    def redimension(image):
+        X = np.zeros((1,256,256,3),dtype=np.uint8)
+        #img = cv2.imread(image,cv2.COLOR_BGR2RGB)
+        img = imread(image)[:,:,:3]
+        size_ = img.shape
+        img = img[:,:,:3]
+        X[0] = resize(img, (256, 256), mode='constant', preserve_range=True)
+        return X,size_
+
+    def dice_coefficient(y_true, y_pred):
+        eps = 1e-6
+        y_true_f = K.flatten(y_true)
+        y_pred_f = K.flatten(y_pred)
+        intersection = K.sum(y_true_f * y_pred_f)
+        return (2. * intersection) / (K.sum(y_true_f * y_true_f) + K.sum(y_pred_f * y_pred_f) + eps) #eps pour éviter la division par 0 
+    
+    try:
+        #Step 1 : Reshaped image
+        image_sample_reshaped = []
+        size_original = []
+
+        for sample in image_list:
+            image_reshaped,size_ = redimension(sample)
+            image_sample_reshaped.append(image_reshaped)
+            x,y,z = size_
+            size_original.append((x,y))
+        #End Step 1
+        #Step 2 : Prediction
+        model_new = tf.keras.models.load_model("best_model_FL_BCE_0_5.h5",custom_objects={'dice_coefficient': dice_coefficient})
+        #Model imported
+
+        image_prediction = []
+        for sample in image_sample_reshaped:
+            prediction = model_new.predict(sample)
+
+            #Application du seuil de segmentation optimisé
+            preds_test_t = (prediction > 0.30000000000000004)
+            image_prediction.append(preds_test_t)
+        #End Step 2
+        #Step 3 : Exportation
+        image_output = []
+        for sample,i,name in zip(image_prediction,range(len(size_original)),image_sample):
+            preds_test_t = resize(sample[0,:,:,0], size_original[i], mode='constant', preserve_range=True)
+            cv2.imwrite(name+"_output",preds_test_t*255)
+        return {'Information':'Files exported'}
+        #End Step 3
     message = 'Not implemented (predict_data())'
     message = {"Error": message}
     return message
+
 
 
 def _predict_url(*args):
